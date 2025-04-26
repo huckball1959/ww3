@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk - First Deployment</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: calc(100vh * 1920 / 1080);
+            max-height: 100vh;
+            aspect-ratio: 1920 / 1080;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            aspect-ratio: 1920 / 1080;
+            box-sizing: border-box;
+            background-color: gray;
+            pointer-events: auto;
+        }
+
+        .background-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 0;
+        }
+
+        .svg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 1;
+        }
+
+        .svg-overlay ellipse {
+            fill: none;
+            stroke: none;
+        }
+
+        .numbers-container {
+            position: absolute;
+            z-index: 3;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .number-overlay {
+            position: absolute;
+            color: white;
+            font-size: 1.3vw;
+            font-weight: bold;
+            text-align: center;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            -webkit-text-stroke: 0.5px black;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .laid-overlay {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, 20%);
+            color: yellow;
+            font-size: 1.1vw;
+            font-weight: bold;
+            text-align: center;
+            z-index: 2;
+            -webkit-text-stroke: 0.5px black;
+        }
+
+        .ui-panel {
+            position: absolute;
+            left: 75%; /* 1440/1920 */
+            top: 1.8519%; /* 20/1080 */
+            width: 23.6979%; /* 455/1920 */
+            height: 96.3889%; /* 1041/1080 */
+            background-color: #0000FF;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .ui-panel p {
+            margin: 10px 0;
+            font-size: 1.4em;
+            text-align: center;
+        }
+
+        .ui-panel button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 1.2em;
+            width: 80%;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .ui-panel button:hover {
+            background-color: #45a049;
+        }
+
+        .ui-panel button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-container" tabindex="0">
+            <img class="background-map" src="stage.webp" alt="Stage Map" onerror="console.error('Failed to load stage.webp')">
+            <img class="svg-overlay" src="stage.svg" alt="Stage Overlay" onerror="console.error('Failed to load stage.svg')">
+            <div class="numbers-container"></div>
+        </div>
+        <div class="ui-panel">
+            <p id="prompt">Loading...</p>
+            <p id="bank">Bank: 0 armies</p>
+            <button id="armies-laid">ARMIES LAID</button>
+            <button id="reset">RESET</button>
+            <button id="confirm" disabled>CONFIRM</button>
+        </div>
+    </div>
+
+    <script>
+        const markerData = [
+            { id: "alaska", x: 308.55679 - 222.0, y: 264.97107 },
+            { id: "eastern_australia", x: 1595.4011 - 222.0, y: 746.38354 },
+            { id: "western_australia", x: 1474.8748 - 222.0, y: 739.28302 },
+            { id: "new_guinea", x: 1587.2722 - 222.0, y: 655.57501 },
+            { id: "indonesia", x: 1446.3921 - 222.0, y: 650.74683 },
+            { id: "siam", x: 1395.9755 - 222.0, y: 581.17511 },
+            { id: "india", x: 1267.0215 - 222.0, y: 575.07788 },
+            { id: "middle_east", x: 1129.2544 - 222.0, y: 588.84821 },
+            { id: "japan", x: 1534.1827 - 222.0, y: 454.17877 },
+            { id: "mongolia", x: 1433.4283 - 222.0, y: 427.65335 },
+            { id: "china", x: 1360.6453 - 222.0, y: 493.22324 },
+            { id: "afghanistan", x: 1218.2479 - 222.0, y: 468.07901 },
+            { id: "irkutsk", x: 1441.7458 - 222.0, y: 338.06064 },
+            { id: "kamchatka", x: 1589.5128 - 222.0, y: 309.51068 },
+            { id: "yakutsk", x: 1477.2804 - 222.0, y: 209.76579 },
+            { id: "siberia", x: 1340.1893 - 222.0, y: 262.83441 },
+            { id: "ural", x: 1254.144 - 222.0, y: 324.73886 },
+            { id: "madagascar", x: 1134.5453 - 222.0, y: 834.55969 },
+            { id: "south_africa", x: 1024.1761 - 222.0, y: 828.63373 },
+            { id: "congo", x: 1014.9386 - 222.0, y: 748.16016 },
+            { id: "east_africa", x: 1069.7106 - 222.0, y: 680.7547 },
+            { id: "egypt", x: 998.12262 - 222.0, y: 621.18164 },
+            { id: "north_africa", x: 898.99554 - 222.0, y: 668.80823 },
+            { id: "southern_europe", x: 1001.1808 - 222.0, y: 528.07111 },
+            { id: "western_europe", x: 904.12915 - 222.0, y: 537.27295 },
+            { id: "northern_europe", x: 975.70923 - 222.0, y: 477.00934 },
+            { id: "great_britain", x: 894.8446 - 222.0, y: 451.23349 },
+            { id: "ukraine", x: 1100.2609 - 222.0, y: 372.86716 },
+            { id: "scandinavia", x: 992.61957 - 222.0, y: 349.13358 },
+            { id: "iceland", x: 908.28015 - 222.0, y: 294.21164 },
+            { id: "brazil", x: 601.57489 - 222.0, y: 731.95221 },
+            { id: "argentina", x: 510.68674 - 222.0, y: 865.08704 },
+            { id: "peru", x: 488.96512 - 222.0, y: 764.83447 },
+            { id: "venezuela", x: 490.67105 - 222.0, y: 643.73474 },
+            { id: "central_america", x: 449.37402 - 222.0, y: 576.0282 },
+            { id: "eastern_united_states", x: 535.35651 - 222.0, y: 484.20441 },
+            { id: "western_united_states", x: 411.80338 - 222.0, y: 456.33908 },
+            { id: "quebec", x: 668.86243 - 222.0, y: 392.12085 },
+            { id: "ontario", x: 544.64899 - 222.0, y: 368.582 },
+            { id: "alberta", x: 417.74677 - 222.0, y: 364.97565 },
+            { id: "greenland", x: 806.80243 - 222.0, y: 186.89986 },
+            { id: "northwest_territory", x: 424.72784 - 222.0, y: 280.13437 }
+        ];
+
+        const colorMap = {
+            "Pink": "#ff69b4",
+            "Green": "green",
+            "Black": "black",
+            "Red": "red",
+            "Blue": "blue",
+            "Yellow": "yellow"
+        };
+
+        let players = [];
+        let currentPlayerIndex = 0;
+        let gameState = {
+            territories: {},
+            banks: {},
+            initialBanks: {},
+            cards: {}, // Added for cardplay.html
+            turnOrder: []
+        };
+        let selectedTerritory = null;
+        let armiesLaidVisible = false;
+        let inputBuffer = "";
+
+        const prompt = document.getElementById("prompt");
+        const bankDisplay = document.getElementById("bank");
+        const armiesLaidBtn = document.getElementById("armies-laid");
+        const resetBtn = document.getElementById("reset");
+        const confirmBtn = document.getElementById("confirm");
+
+        function initializeGame() {
+            const storedPlayers = localStorage.getItem("playerData");
+            if (!storedPlayers) {
+                prompt.innerText = "Error: No player data found. Redirecting to login...";
+                console.error("No player data found in localStorage under 'playerData'.");
+                setTimeout(() => window.location.href = "login.html", 2000);
+                return;
+            }
+            players = JSON.parse(storedPlayers);
+            console.log("Loaded players:", players);
+
+            if (!players.every(p => p.name && p.color)) {
+                console.error("Invalid player data:", players);
+                prompt.innerText = "Error: Invalid player data. Redirecting to login...";
+                setTimeout(() => window.location.href = "login.html", 2000);
+                return;
+            }
+
+            const armyCounts = { 2: 40, 3: 35, 4: 30, 5: 25, 6: 20 };
+            const totalArmies = armyCounts[players.length] || 20;
+
+            players.forEach(player => {
+                gameState.banks[player.name] = totalArmies;
+                gameState.initialBanks[player.name] = totalArmies;
+                gameState.cards[player.name] = []; // Initialize empty card array
+            });
+
+            const shuffledTerritories = [...markerData].sort(() => Math.random() - 0.5);
+            console.log("Shuffled territories:", shuffledTerritories.map(t => t.id));
+
+            const totalTerritories = markerData.length;
+            const territoriesPerPlayer = Math.floor(totalTerritories / players.length);
+            const extraTerritories = totalTerritories % players.length;
+            let territoryIndex = 0;
+
+            players.forEach((player, playerIndex) => {
+                const numTerritories = territoriesPerPlayer + (playerIndex < extraTerritories ? 1 : 0);
+                console.log(`Assigning ${numTerritories} territories to ${player.name}`);
+                for (let i = 0; i < numTerritories && territoryIndex < shuffledTerritories.length; i++) {
+                    const territory = shuffledTerritories[territoryIndex];
+                    gameState.territories[territory.id] = {
+                        owner: player.name,
+                        armies: 1,
+                        pending: 0
+                    };
+                    gameState.banks[player.name]--;
+                    gameState.initialBanks[player.name]--;
+                    territoryIndex++;
+                }
+            });
+
+            console.log("Territories assigned:", Object.keys(gameState.territories).length, "of", totalTerritories);
+            if (Object.keys(gameState.territories).length !== totalTerritories) {
+                console.error("Not all territories were assigned!");
+            }
+
+            players.forEach(player => {
+                const territories = Object.entries(gameState.territories)
+                    .filter(([id, t]) => t.owner === player.name)
+                    .map(([id]) => id);
+                console.log(`${player.name}'s territories:`, territories);
+                console.log(`${player.name}'s bank: ${gameState.banks[player.name]}, initialBank: ${gameState.initialBanks[player.name]}`);
+            });
+
+            gameState.turnOrder = [...players].sort(() => Math.random() - 0.5);
+            currentPlayerIndex = 0;
+            console.log("Turn order:", gameState.turnOrder.map(p => p.name));
+
+            renderMap();
+            updateUI();
+            document.querySelector(".map-container").focus();
+        }
+
+        function renderMap() {
+            const container = document.querySelector(".map-container");
+            const numbersContainer = document.querySelector(".numbers-container");
+            const mapWidth = 1920;
+            const mapHeight = 1080;
+
+            const xCoords = markerData.map(m => m.x);
+            const yCoords = markerData.map(m => m.y);
+            const minX = Math.min(...xCoords);
+            const maxX = Math.max(...xCoords);
+            const minY = Math.min(...yCoords);
+            const maxY = Math.max(...yCoords);
+
+            const scaledLeft = (minX / mapWidth) * 100;
+            const scaledTop = (minY / mapHeight) * 100;
+            const scaledWidth = ((maxX - minX) / mapWidth) * 100;
+            const scaledHeight = ((maxY - minY) / mapHeight) * 100;
+
+            console.log(`Numbers container bounds: minX=${minX}, maxX=${maxX}, minY=${minY}, maxY=${maxY}`);
+            console.log(`Scaled: left=${scaledLeft}%, top=${scaledTop}%, width=${scaledWidth}%, height=${scaledHeight}%`);
+
+            numbersContainer.style.left = `${scaledLeft}%`;
+            numbersContainer.style.top = `${scaledTop}%`;
+            numbersContainer.style.width = `${scaledWidth}%`;
+            numbersContainer.style.height = `${scaledHeight}%`;
+
+            markerData.forEach(marker => {
+                const territory = gameState.territories[marker.id];
+                if (!territory) {
+                    console.error(`Territory ${marker.id} not initialized in gameState.`);
+                    return;
+                }
+                const armies = (territory.armies + territory.pending).toString().padStart(3, "0");
+
+                const numberDiv = document.createElement("div");
+                numberDiv.className = "number-overlay";
+                numberDiv.innerText = armies;
+                numberDiv.dataset.id = marker.id;
+
+                const player = players.find(p => p.name === territory.owner);
+                if (player) {
+                    const cssColor = colorMap[player.color] || player.color.toLowerCase();
+                    numberDiv.style.backgroundColor = cssColor;
+                    numberDiv.style.padding = "4px 8px";
+                    numberDiv.style.border = "1px solid black";
+                    numberDiv.style.borderRadius = "4px";
+                    numberDiv.style.opacity = "0.9";
+                    console.log(`Set number-overlay for ${marker.id}, color: ${cssColor}, pos: x=${marker.x}, y=${marker.y}`);
+                }
+
+                const scaledX = ((marker.x - minX) / (maxX - minX)) * 100;
+                const scaledY = ((marker.y - minY) / (maxY - minY)) * 100;
+
+                numberDiv.style.left = `${scaledX}%`;
+                numberDiv.style.top = `${scaledY}%`;
+
+                numberDiv.addEventListener("click", () => {
+                    const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+                    if (selectedTerritory === marker.id) {
+                        numberDiv.style.border = "1px solid black";
+                        selectedTerritory = null;
+                        prompt.innerText = `${currentPlayer.name}, place your armies. Click a territory you own, scroll or type a number to adjust armies.`;
+                        console.log(`Deselected ${marker.id}`);
+                        inputBuffer = "";
+                    } else if (gameState.territories[marker.id].owner === currentPlayer.name) {
+                        selectTerritory(marker.id);
+                    } else {
+                        prompt.innerText = `You do not own ${marker.id}. Select a territory you own.`;
+                        console.log(`Attempted to select ${marker.id} owned by ${gameState.territories[marker.id].owner}, current player: ${currentPlayer.name}`);
+                    }
+                });
+
+                numbersContainer.appendChild(numberDiv);
+                console.log(`Rendered number-overlay for ${marker.id} at scaledX=${scaledX}%, scaledY=${scaledY}%`);
+            });
+        }
+
+        function updateUI() {
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            const totalPending = Object.values(gameState.territories)
+                .filter(t => t.owner === currentPlayer.name)
+                .reduce((sum, t) => sum + t.pending, 0);
+            prompt.innerText = `${currentPlayer.name}, place your armies. Click a territory you own, scroll or type a number to adjust armies.`;
+            bankDisplay.innerText = `Bank: ${gameState.banks[currentPlayer.name]} armies`;
+            confirmBtn.disabled = gameState.banks[currentPlayer.name] > 0 || totalPending === 0;
+            console.log(`Updated UI for ${currentPlayer.name}, bank: ${gameState.banks[currentPlayer.name]}, totalPending: ${totalPending}, confirmBtn.disabled: ${confirmBtn.disabled}`);
+        }
+
+        function selectTerritory(id) {
+            const territory = gameState.territories[id];
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            if (territory.owner !== currentPlayer.name) {
+                prompt.innerText = `You do not own ${id}. Select a territory you own.`;
+                console.log(`Attempted to select ${id} owned by ${territory.owner}, current player: ${currentPlayer.name}`);
+                return;
+            }
+            if (selectedTerritory) {
+                document.querySelector(`.number-overlay[data-id="${selectedTerritory}"]`).style.border = "1px solid black";
+            }
+            selectedTerritory = id;
+            document.querySelector(`.number-overlay[data-id="${id}"]`).style.border = "2px solid yellow";
+            prompt.innerText = `Selected ${id}. Scroll or type a number to adjust armies.`;
+            console.log(`Selected ${id} for ${currentPlayer.name}`);
+            inputBuffer = "";
+        }
+
+        document.addEventListener("wheel", (e) => {
+            if (selectedTerritory) {
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 1 : -1;
+                console.log(`Wheel event: deltaY=${e.deltaY}, delta=${delta}`);
+                adjustArmies(delta);
+            }
+        }, { passive: false });
+
+        document.addEventListener("keydown", (e) => {
+            if (!selectedTerritory) return;
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            if (e.key === "Enter") {
+                if (inputBuffer) {
+                    const number = parseInt(inputBuffer);
+                    if (!isNaN(number)) {
+                        adjustArmies(number);
+                    }
+                    inputBuffer = "";
+                }
+                document.querySelector(`.number-overlay[data-id="${selectedTerritory}"]`).style.border = "1px solid black";
+                prompt.innerText = `${currentPlayer.name}, place your armies. Click a territory you own, scroll or type a number to adjust armies.`;
+                console.log(`Deselected ${selectedTerritory} via Enter`);
+                selectedTerritory = null;
+            } else if (e.key === "-" && inputBuffer === "") {
+                inputBuffer = "-";
+                prompt.innerText = `Input: ${inputBuffer} for ${selectedTerritory}`;
+                console.log(`Input buffer: ${inputBuffer} for ${selectedTerritory}`);
+            } else if (/^[0-9]$/.test(e.key) && inputBuffer.length < (inputBuffer.startsWith("-") ? 4 : 3)) {
+                inputBuffer += e.key;
+                prompt.innerText = `Input: ${inputBuffer} for ${selectedTerritory}`;
+                console.log(`Input buffer: ${inputBuffer} for ${selectedTerritory}`);
+                if (inputBuffer.length === (inputBuffer.startsWith("-") ? 4 : 3)) {
+                    const number = parseInt(inputBuffer);
+                    if (!isNaN(number)) {
+                        adjustArmies(number);
+                    }
+                    inputBuffer = "";
+                    document.querySelector(`.number-overlay[data-id="${selectedTerritory}"]`).style.border = "1px solid black";
+                    prompt.innerText = `${currentPlayer.name}, place your armies. Click a territory you own, scroll or type a number to adjust armies.`;
+                    console.log(`Deselected ${selectedTerritory} after applying ${number}`);
+                    selectedTerritory = null;
+                }
+            } else if (e.key === "Escape") {
+                inputBuffer = "";
+                prompt.innerText = `Input cleared. Enter a number for ${selectedTerritory}.`;
+                console.log(`Cleared input buffer for ${selectedTerritory}`);
+            }
+        });
+
+        function adjustArmies(delta) {
+            const territory = gameState.territories[selectedTerritory];
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            const newPending = territory.pending + delta;
+            const bank = gameState.banks[currentPlayer.name] || 0;
+            const totalPending = Object.values(gameState.territories)
+                .filter(t => t.owner === currentPlayer.name)
+                .reduce((sum, t) => sum + t.pending, 0);
+
+            console.log(`adjustArmies: delta=${delta}, newPending=${newPending}, totalPending=${totalPending}, Bank=${bank}, initialBank=${gameState.initialBanks[currentPlayer.name]}`);
+
+            if (newPending < 0 || territory.armies + newPending < 1) {
+                prompt.innerText = `Cannot reduce armies below 1 on ${selectedTerritory}.`;
+                console.log(`Invalid adjustment: delta=${delta}, newPending=${newPending}, armies=${territory.armies}, totalPending=${totalPending}, Bank=${bank}`);
+                return;
+            }
+            if (delta > 0 && totalPending + delta > gameState.initialBanks[currentPlayer.name]) {
+                prompt.innerText = `Cannot add ${delta} armies. Available: ${gameState.initialBanks[currentPlayer.name] - totalPending}.`;
+                console.log(`Invalid adjustment: delta=${delta}, newPending=${newPending}, totalPending=${totalPending}, Bank=${bank}, initialBank=${gameState.initialBanks[currentPlayer.name]}`);
+                return;
+            }
+            if (delta > 0 && bank < delta) {
+                prompt.innerText = `Cannot add ${delta} armies. Bank: ${bank}.`;
+                console.log(`Invalid adjustment: delta=${delta}, newPending=${newPending}, totalPending=${totalPending}, Bank=${bank}`);
+                return;
+            }
+
+            territory.pending = newPending;
+            if (delta !== 0) {
+                gameState.banks[currentPlayer.name] -= delta;
+            }
+            updateTerritoryDisplay(selectedTerritory);
+            updateLaidOverlays();
+            updateUI();
+            console.log(`Adjusted ${selectedTerritory} pending armies to ${newPending}, totalPending=${totalPending + delta}, Bank=${gameState.banks[currentPlayer.name]}`);
+        }
+
+        function deployArmies() {
+            if (!selectedTerritory) return;
+            const territory = gameState.territories[selectedTerritory];
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+
+            console.log(`Attempting to deploy ${territory.pending} armies to ${selectedTerritory}, Bank=${gameState.banks[currentPlayer.name]}`);
+
+            if (territory.pending !== 0) {
+                territory.armies += territory.pending;
+                territory.pending = 0;
+                updateTerritoryDisplay(selectedTerritory);
+                updateLaidOverlays();
+                updateUI();
+                prompt.innerText = `Deployed ${territory.armies} armies to ${selectedTerritory}. Select another territory or confirm.`;
+                console.log(`Deployed ${territory.armies} armies to ${selectedTerritory}, Bank=${gameState.banks[currentPlayer.name]}`);
+            }
+            document.querySelector(`.number-overlay[data-id="${selectedTerritory}"]`).style.border = "1px solid black";
+            selectedTerritory = null;
+        }
+
+        function updateTerritoryDisplay(id) {
+            const numberDiv = document.querySelector(`.number-overlay[data-id="${id}"]`);
+            const territory = gameState.territories[id];
+            const armies = (territory.armies + territory.pending).toString().padStart(3, "0");
+            numberDiv.innerText = armies;
+
+            if (armiesLaidVisible) {
+                updateLaidOverlays();
+            }
+        }
+
+        function updateLaidOverlays() {
+            const numbersContainer = document.querySelector(".numbers-container");
+            document.querySelectorAll(".laid-overlay").forEach(div => div.remove());
+
+            if (armiesLaidVisible) {
+                Object.entries(gameState.territories).forEach(([id, territory]) => {
+                    if (territory.pending > 0) {
+                        const marker = markerData.find(m => m.id === id);
+                        const laidDiv = document.createElement("div");
+                        laidDiv.className = "laid-overlay";
+                        laidDiv.dataset.id = id;
+                        laidDiv.innerText = `+${territory.pending}`;
+
+                        const xCoords = markerData.map(m => m.x);
+                        const yCoords = markerData.map(m => m.y);
+                        const minX = Math.min(...xCoords);
+                        const maxX = Math.max(...xCoords);
+                        const minY = Math.min(...yCoords);
+                        const maxY = Math.max(...yCoords);
+
+                        const scaledX = ((marker.x - minX) / (maxX - minX)) * 100;
+                        const scaledY = ((marker.y - minY) / (maxY - minY)) * 100;
+
+                        laidDiv.style.left = `${scaledX}%`;
+                        laidDiv.style.top = `${scaledY}%`;
+
+                        numbersContainer.appendChild(laidDiv);
+                        console.log(`Laid-overlay ${id}: x=${marker.x}, y=${marker.y}, scaledX=${scaledX}%, scaledY=${scaledY}%`);
+                    }
+                });
+            }
+        }
+
+        armiesLaidBtn.addEventListener("click", () => {
+            armiesLaidVisible = !armiesLaidVisible;
+            updateLaidOverlays();
+            armiesLaidBtn.innerText = armiesLaidVisible ? "HIDE ARMIES LAID" : "ARMIES LAID";
+            console.log(`Toggled armies laid visibility: ${armiesLaidVisible}`);
+            console.log(`Armies laid toggled, pending territories:`, Object.entries(gameState.territories).filter(([id, t]) => t.pending > 0));
+        });
+
+        resetBtn.addEventListener("click", () => {
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            console.log(`Bank before reset: ${gameState.banks[currentPlayer.name]}`);
+            const resetCount = Object.values(gameState.territories)
+                .filter(t => t.owner === currentPlayer.name && t.pending > 0)
+                .reduce((sum, t) => sum + t.pending, 0);
+            Object.entries(gameState.territories).forEach(([id, territory]) => {
+                if (territory.owner === currentPlayer.name) {
+                    console.log(`Reset ${id} pending armies from ${territory.pending} to 0`);
+                    gameState.banks[currentPlayer.name] += territory.pending;
+                    territory.pending = 0;
+                    territory.armies = 1;
+                    updateTerritoryDisplay(id);
+                }
+            });
+            gameState.banks[currentPlayer.name] = gameState.initialBanks[currentPlayer.name];
+            console.log(`Bank after reset: ${gameState.banks[currentPlayer.name]}`);
+            selectedTerritory = null;
+            armiesLaidVisible = false;
+            updateLaidOverlays();
+            armiesLaidBtn.innerText = "ARMIES LAID";
+            updateUI();
+            prompt.innerText = resetCount > 0
+                ? `Reset ${resetCount} pending armies for ${currentPlayer.name}. Place your armies.`
+                : `No pending armies to reset for ${currentPlayer.name}. Place your armies.`;
+            console.log(`Reset pending armies for ${currentPlayer.name}, Bank=${gameState.banks[currentPlayer.name]}`);
+        });
+
+        confirmBtn.addEventListener("click", () => {
+            const currentPlayer = gameState.turnOrder[currentPlayerIndex];
+            const totalPending = Object.values(gameState.territories)
+                .filter(t => t.owner === currentPlayer.name)
+                .reduce((sum, t) => sum + t.pending, 0);
+            console.log(`Confirm clicked: bank=${gameState.banks[currentPlayer.name]}, totalPending=${totalPending}`);
+            if (gameState.banks[currentPlayer.name] > 0 || totalPending === 0) {
+                prompt.innerText = "Deploy all armies before confirming.";
+                console.log(`Cannot confirm: ${currentPlayer.name} has ${gameState.banks[currentPlayer.name]} armies left, pending: ${totalPending}`);
+                return;
+            }
+
+            Object.entries(gameState.territories).forEach(([id, territory]) => {
+                if (territory.owner === currentPlayer.name && territory.pending > 0) {
+                    territory.armies += territory.pending;
+                    territory.pending = 0;
+                    updateTerritoryDisplay(id);
+                }
+            });
+
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            selectedTerritory = null;
+            armiesLaidVisible = false;
+            updateLaidOverlays();
+            armiesLaidBtn.innerText = "ARMIES LAID";
+
+            if (currentPlayerIndex === 0) {
+                localStorage.setItem("gameState", JSON.stringify(gameState));
+                console.log("Game state saved, redirecting to cardplay.html");
+                window.location.href = "cardplay.html";
+            } else {
+                updateUI();
+            }
+        });
+
+        window.onload = initializeGame;
+    </script>
+</body>
+</html>

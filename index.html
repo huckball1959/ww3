@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Risk</title>
+    <style>
+        /* Reset body margin and padding */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black; /* Black background for contrast */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full viewport height */
+            width: 100vw; /* Full viewport width */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        /* Centered container */
+        .main-container {
+            text-align: center;
+            background-color: blue; /* Blue background for the index panel */
+            color: white; /* White text for contrast */
+            border: 2px solid white; /* White border */
+            border-radius: 8px;
+            padding: 20px;
+            width: 50%; /* Adjust width for center alignment */
+            max-width: 600px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: green; /* Green background for buttons */
+            color: white; /* White text for buttons */
+            border: 2px solid white; /* White outline for buttons */
+            border-radius: 4px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        button:hover {
+            background-color: darkgreen; /* Darker green on hover */
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>Welcome to Risk!</h1>
+        <button onclick="loadGame()">LOAD GAME</button>
+        <button onclick="startGame()">START GAME</button>
+    </div>
+
+    <script>
+        // Function to open the C:\game1\ folder (requires Electron or similar framework)
+        function loadGame() {
+            // Simulate opening a folder; in a real application (Node.js or Electron), this would open the file dialog
+            alert("Opening C:\\game1\\ folder to select a saved game file...");
+            // Logic to handle loading a game file would go here
+        }
+
+        // Function to start a new game and navigate to the login page
+        function startGame() {
+            window.location.href = "login.html"; // Redirect to the login page
+        }
+    </script>
+</body>
+</html>
