@@ -1,0 +1,180 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: #fff;
+  overflow: hidden;
+}
+
+.screen {
+  width: 100vw;
+  height: 100vh;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#welcome {
+  text-align: center;
+  background: #222;
+  display: flex;
+  z-index: 1;
+}
+
+#welcome h1 {
+  font-size: 4vw;
+  margin-bottom: 2vw;
+}
+
+#welcome button {
+  font-size: 1.5vw;
+  padding: 1vw 2vw;
+  margin: 1vw;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#welcome button:hover {
+  background: #0056b3;
+}
+
+#login {
+  background: #007bff;
+  color: black;
+  display: none;
+  z-index: 0;
+}
+
+#game {
+  display: none;
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 0;
+}
+
+#map {
+  width: 100vw;
+  height: 100vh;
+  max-width: 1920px;
+  max-height: 1080px;
+  object-fit: contain;
+  display: block;
+  margin: 0;
+}
+
+#panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 480px;
+  height: 1080px;
+  background: transparent;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  color: white;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+#panel h2 {
+  font-size: 20px;
+  margin-bottom: 5px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+#panel p {
+  font-size: 16px;
+  margin: 3px 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.button-group {
+  margin: 5px 0;
+  display: flex;
+  gap: 5px;
+}
+
+.button-group a {
+  font-size: 14px;
+  padding: 5px 10px;
+  background: #007bff;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+.button-group a:hover {
+  background: #0056b3;
+}
+
+.territory {
+  stroke: black;
+  stroke-width: 0.648837;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.territory.unowned {
+  pointer-events: none;
+}
+
+.territory-text {
+  font-size: 24px;
+  font-weight: bold;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  stroke: black;
+  stroke-width: 0.5;
+  pointer-events: none;
+}
+
+.player-stats-text {
+  font-size: 21px;
+  fill: black;
+  text-anchor: start;
+  pointer-events: none;
+}
+
+.highlight {
+  stroke: yellow;
+  stroke-width: 2;
+}
+
+.card {
+  display: inline-block;
+  width: 60px;
+  height: 90px;
+  background: #555;
+  margin: 3px;
+  text-align: center;
+  line-height: 90px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.card.selected {
+  border: 2px solid yellow;
+}
+
+.error {
+  color: red;
+  font-size: 14px;
+  margin-top: 5px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}

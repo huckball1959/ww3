@@ -1,77 +1,188 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Risk</title>
-    <style>
-        /* Reset body margin and padding */
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: black; /* Black background for contrast */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh; /* Full viewport height */
-            width: 100vw; /* Full viewport width */
-            overflow: hidden; /* Prevent scrollbars */
-        }
-
-        /* Centered container */
-        .main-container {
-            text-align: center;
-            background-color: blue; /* Blue background for the index panel */
-            color: white; /* White text for contrast */
-            border: 2px solid white; /* White border */
-            border-radius: 8px;
-            padding: 20px;
-            width: 50%; /* Adjust width for center alignment */
-            max-width: 600px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-
-        h1 {
-            margin-bottom: 20px;
-        }
-
-        button {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            background-color: green; /* Green background for buttons */
-            color: white; /* White text for buttons */
-            border: 2px solid white; /* White outline for buttons */
-            border-radius: 4px;
-            font-size: 1.2em;
-            cursor: pointer;
-            margin-bottom: 15px;
-        }
-
-        button:hover {
-            background-color: darkgreen; /* Darker green on hover */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WW3 - Risk-Based Strategy Game</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="game.js"></script>
 </head>
 <body>
-    <div class="main-container">
-        <h1>Welcome to Risk!</h1>
-        <button onclick="loadGame()">LOAD GAME</button>
-        <button onclick="startGame()">START GAME</button>
+  <div id="welcome" class="screen">
+    <h1>Welcome to WW3</h1>
+    <button type="button" onclick="showLogin()">Start Game</button>
+    <button type="button" onclick="loadGame()">Load Game</button>
+  </div>
+  <div id="login" class="screen">
+    <div style="font-family: Arial; font-size: 16pt; background-color: #007bff; color: black; padding: 20px; border-radius: 10px;">
+      <h2 style="font-size: 20pt; color: black; text-align: center;">WW3</h2>
+      <form id="playerForm">
+        <div style="margin-bottom: 10px;">
+          <label for="numPlayers" style="color: black;">Number of players (2-6):</label>
+          <select id="numPlayers" style="color: black;">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+        <div id="playerInputs"></div>
+        <div style="text-align: center; margin-top: 10px;">
+          <input type="submit" value="Start Game" style="font-size: 16pt; color: black;">
+        </div>
+      </form>
     </div>
-
-    <script>
-        // Function to open the C:\game1\ folder (requires Electron or similar framework)
-        function loadGame() {
-            // Simulate opening a folder; in a real application (Node.js or Electron), this would open the file dialog
-            alert("Opening C:\\game1\\ folder to select a saved game file...");
-            // Logic to handle loading a game file would go here
-        }
-
-        // Function to start a new game and navigate to the login page
-        function startGame() {
-            window.location.href = "login.html"; // Redirect to the login page
-        }
-    </script>
+  </div>
+  <div id="game" class="screen">
+    <svg id="map" viewBox="0 0 1920 1080">
+      <image href="images/STAGE.WEBP" width="1920" height="1080"/>
+      <g id="playerStatsOverlay"></g>
+      <g transform="translate(-222.23624)">
+        <ellipse id="alaska" cx="308.55679" cy="264.97107" rx="31.202999" ry="23.426674" class="territory" onclick="selectTerritory('alaska')"/>
+        <text class="territory-text" x="308.55679" y="264.97107" id="alaska-text">001</text>
+        <ellipse id="eastern_australia" cx="1595.4011" cy="746.38354" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('eastern_australia')"/>
+        <text class="territory-text" x="1595.4011" y="746.38354" id="eastern_australia-text">001</text>
+        <ellipse id="western_australia" cx="1474.8748" cy="739.28302" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('western_australia')"/>
+        <text class="territory-text" x="1474.8748" y="739.28302" id="western_australia-text">001</text>
+        <ellipse id="new_guinea" cx="1587.2722" cy="655.57501" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('new_guinea')"/>
+        <text class="territory-text" x="1587.2722" y="655.57501" id="new_guinea-text">001</text>
+        <ellipse id="indonesia" cx="1446.3921" cy="650.74683" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('indonesia')"/>
+        <text class="territory-text" x="1446.3921" y="650.74683" id="indonesia-text">001</text>
+        <ellipse id="siam" cx="1395.9755" cy="581.17511" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('siam')"/>
+        <text class="territory-text" x="1395.9755" y="581.17511" id="siam-text">001</text>
+        <ellipse id="india" cx="1267.0215" cy="575.07788" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('india')"/>
+        <text class="territory-text" x="1267.0215" y="575.07788" id="india-text">001</text>
+        <ellipse id="middle_east" cx="1129.2544" cy="588.84821" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('middle_east')"/>
+        <text class="territory-text" x="1129.2544" y="588.84821" id="middle_east-text">001</text>
+        <ellipse id="japan" cx="1534.1827" cy="454.17877" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('japan')"/>
+        <text class="territory-text" x="1534.1827" y="454.17877" id="japan-text">001</text>
+        <ellipse id="mongolia" cx="1433.4283" cy="427.65335" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('mongolia')"/>
+        <text class="territory-text" x="1433.4283" y="427.65335" id="mongolia-text">001</text>
+        <ellipse id="china" cx="1360.6453" cy="493.22324" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('china')"/>
+        <text class="territory-text" x="1360.6453" y="493.22324" id="china-text">001</text>
+        <ellipse id="afghanistan" cx="1218.2479" cy="468.07901" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('afghanistan')"/>
+        <text class="territory-text" x="1218.2479" y="468.07901" id="afghanistan-text">001</text>
+        <ellipse id="irkutsk" cx="1441.7458" cy="338.06064" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('irkutsk')"/>
+        <text class="territory-text" x="1441.7458" y="338.06064" id="irkutsk-text">001</text>
+        <ellipse id="kamchatka" cx="1589.5128" cy="309.51068" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('kamchatka')"/>
+        <text class="territory-text" x="1589.5128" y="309.51068" id="kamchatka-text">001</text>
+        <ellipse id="yakutsk" cx="1477.2804" cy="209.76579" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('yakutsk')"/>
+        <text class="territory-text" x="1477.2804" y="209.76579" id="yakutsk-text">001</text>
+        <ellipse id="siberia" cx="1340.1893" cy="262.83441" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('siberia')"/>
+        <text class="territory-text" x="1340.1893" y="262.83441" id="siberia-text">001</text>
+        <ellipse id="ural" cx="1254.144" cy="324.73886" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('ural')"/>
+        <text class="territory-text" x="1254.144" y="324.73886" id="ural-text">001</text>
+        <ellipse id="madagascar" cx="1134.5453" cy="834.55969" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('madagascar')"/>
+        <text class="territory-text" x="1134.5453" y="834.55969" id="madagascar-text">001</text>
+        <ellipse id="south_africa" cx="1024.1761" cy="828.63373" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('south_africa')"/>
+        <text class="territory-text" x="1024.1761" y="828.63373" id="south_africa-text">001</text>
+        <ellipse id="congo" cx="1014.9386" cy="748.16016" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('congo')"/>
+        <text class="territory-text" x="1014.9386" y="748.16016" id="congo-text">001</text>
+        <ellipse id="east_africa" cx="1069.7106" cy="680.7547" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('east_africa')"/>
+        <text class="territory-text" x="1069.7106" y="680.7547" id="east_africa-text">001</text>
+        <ellipse id="egypt" cx="998.12262" cy="621.18164" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('egypt')"/>
+        <text class="territory-text" x="998.12262" y="621.18164" id="egypt-text">001</text>
+        <ellipse id="north_africa" cx="898.99554" cy="668.80823" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('north_africa')"/>
+        <text class="territory-text" x="898.99554" y="668.80823" id="north_africa-text">001</text>
+        <ellipse id="southern_europe" cx="1001.1808" cy="528.07111" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('southern_europe')"/>
+        <text class="territory-text" x="1001.1808" y="528.07111" id="southern_europe-text">001</text>
+        <ellipse id="western_europe" cx="904.12915" cy="537.27295" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('western_europe')"/>
+        <text class="territory-text" x="904.12915" y="537.27295" id="western_europe-text">001</text>
+        <ellipse id="northern_europe" cx="975.70923" cy="477.00934" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('northern_europe')"/>
+        <text class="territory-text" x="975.70923" y="477.00934" id="northern_europe-text">001</text>
+        <ellipse id="great_britain" cx="894.8446" cy="451.23349" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('great_britain')"/>
+        <text class="territory-text" x="894.8446" y="451.23349" id="great_britain-text">001</text>
+        <ellipse id="ukraine" cx="1100.2609" cy="372.86716" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('ukraine')"/>
+        <text class="territory-text" x="1100.2609" y="372.86716" id="ukraine-text">001</text>
+        <ellipse id="scandinavia" cx="992.61957" cy="349.13358" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('scandinavia')"/>
+        <text class="territory-text" x="992.61957" y="349.13358" id="scandinavia-text">001</text>
+        <ellipse id="iceland" cx="908.28015" cy="294.21164" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('iceland')"/>
+        <text class="territory-text" x="908.28015" y="294.21164" id="iceland-text">001</text>
+        <ellipse id="brazil" cx="601.57489" cy="731.95221" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('brazil')"/>
+        <text class="territory-text" x="601.57489" y="731.95221" id="brazil-text">001</text>
+        <ellipse id="argentina" cx="510.68674" cy="865.08704" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('argentina')"/>
+        <text class="territory-text" x="510.68674" y="865.08704" id="argentina-text">001</text>
+        <ellipse id="peru" cx="488.96512" cy="764.83447" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('peru')"/>
+        <text class="territory-text" x="488.96512" y="764.83447" id="peru-text">001</text>
+        <ellipse id="venezuela" cx="490.67105" cy="643.73474" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('venezuela')"/>
+        <text class="territory-text" x="490.67105" y="643.73474" id="venezuela-text">001</text>
+        <ellipse id="central_america" cx="449.37402" cy="576.0282" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('central_america')"/>
+        <text class="territory-text" x="449.37402" y="576.0282" id="central_america-text">001</text>
+        <ellipse id="eastern_united_states" cx="535.35651" cy="484.20441" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('eastern_united_states')"/>
+        <text class="territory-text" x="535.35651" y="484.20441" id="eastern_united_states-text">001</text>
+        <ellipse id="western_united_states" cx="411.80338" cy="456.33908" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('western_united_states')"/>
+        <text class="territory-text" x="411.80338" y="456.33908" id="western_united_states-text">001</text>
+        <ellipse id="quebec" cx="668.86243" cy="392.12085" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('quebec')"/>
+        <text class="territory-text" x="668.86243" y="392.12085" id="quebec-text">001</text>
+        <ellipse id="ontario" cx="544.64899" cy="368.582" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('ontario')"/>
+        <text class="territory-text" x="544.64899" y="368.582" id="ontario-text">001</text>
+        <ellipse id="alberta" cx="417.74677" cy="364.97565" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('alberta')"/>
+        <text class="territory-text" x="417.74677" y="364.97565" id="alberta-text">001</text>
+        <ellipse id="greenland" cx="806.80243" cy="186.89986" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('greenland')"/>
+        <text class="territory-text" x="806.80243" y="186.89986" id="greenland-text">001</text>
+        <ellipse id="northwest_territory" cx="424.72784" cy="280.13437" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('northwest_territory')"/>
+        <text class="territory-text" x="424.72784" y="280.13437" id="northwest_territory-text">001</text>
+      </g>
+    </svg>
+    <div id="panel">
+      <h2 id="playerPrompt">Player, Deploy Armies</h2>
+      <p>Bank: <span id="bank">0</span></p>
+      <div class="button-group" id="deploymentButtons">
+        <a href="#" id="armiesLaid" onclick="toggleArmiesLaid()">Show Armies</a>
+        <a href="#" id="reset" onclick="resetDeployment()">Reset</a>
+        <a href="#" id="confirm" onclick="confirmDeployment()">Done</a>
+      </div>
+      <div id="cardPanel" style="display: none;">
+        <p>Cards:</p>
+        <div id="cardList"></div>
+        <div class="button-group">
+          <a href="#" onclick="playCard()">Play Card</a>
+          <a href="#" onclick="playBook()">Play Book</a>
+          <a href="#" onclick="skipCardPlay()">Skip</a>
+        </div>
+      </div>
+      <p id="error" class="error"></p>
+    </div>
+  </div>
 </body>
 </html>

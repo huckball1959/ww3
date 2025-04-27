@@ -1,0 +1,144 @@
+WW3 Project Summary
+==================
+Date: April 26, 2025
+Recipient: Grok 3 (xAI)
+Author: Gofer
+
+Project Overview
+---------------
+WW3 is a Risk-based strategy game built with HTML, JavaScript, and CSS, running in a browser via Live Server. It features a 1920x1080 map (STAGE.WEBP) with 42 territories, supporting 2-6 players. Players deploy armies, play cards, and manage territories. The game is in development, with the initial deployment phase and card play partially implemented.
+
+Current State
+-------------
+- **Welcome Screen**:
+  - Displays "Welcome to WW3" with "Start Game" and "Load Game" buttons (blue, centered, 4vw/1.5vw fonts).
+  - Clicking "Start Game" transitions to the login screen.
+  - Location: index.html (#welcome)
+- **Login Screen**:
+  - Blue background (#007bff), black Arial 16pt text, dropdown for 2-6 players.
+  - Players enter names and select unique colors (red, blue, pink, yellow, green, black).
+  - Stable dropdown, names enable colors, no duplicate colors.
+  - Submits to game screen with randomized player order.
+  - Location: index.html (#login)
+- **Game Screen**:
+  - **Map**:
+    - Displays STAGE.WEBP (1920x1080, scales to screen, e.g., 1366x768).
+    - 42 territories with player-colored ellipses, numbers (pink: black, others: white, 24px, bold, black outline).
+    - Stats overlay in top ~1400x100px (white box, black border, black 21px text):
+      - Guido: "X Cards, Y Territories, Z Armies, Continents – Name, Name" (x=10, y=31).
+      - Nooch: Same format (x=700, y=31).
+      - Karl: Below Guido (x=10, y=51).
+      - Mickey: Below Nooch (x=700, y=51).
+      - Deck: "W Cards left in the Deck, V Wildcards played" (x=10, y=71).
+      - Continents: "Continents next payoff: Australia 2, South America 2, Africa 3, North America 5, Europe 5, Asia 7" (x=10, y=91).
+    - No overlap with territories (e.g., Greenland at y=186).
+    - Location: index.html (#map), game.js (updateStats)
+  - **Panel**:
+    - Right side, transparent, 480x1080, contains only: prompt, bank, buttons, card panel (when active), errors.
+    - No stats (continent payoffs, deck, wildcards, round).
+    - Buttons: "Show Armies" (toggles yellow highlight, +X), "Reset" (restores pre-deployment), "Done" (next player if bank=0).
+    - Text wraps within 480px.
+    - Location: index.html (#panel)
+  - **Territory Selection**:
+    - Unowned territories unclickable (gray, .unowned, pointer-events: none).
+    - Owned territories highlight on click (yellow stroke), deselect on re-click, Enter, or new selection.
+    - Console logs: "selectTerritory called for [territory]", "Cannot select [territory]: not owned".
+    - Location: game.js (selectTerritory, initializeGame), styles.css (.unowned)
+  - **Keyboard Input**:
+    - Select territory, type number (e.g., "10" adds 10 armies, 1→11, bank-=10).
+    - Negative input (e.g., "-4" subtracts 4, 11→7, bank+=4).
+    - Backspace works, Enter deselects, errors for invalid input (e.g., bank too low, armies<1).
+    - Console logs: "Keyboard: [territory], input=10, delta=10, armies=11, bank=10".
+    - Location: game.js (handleKeydown)
+  - **Bank/Reset**:
+    - Initial bank: 2 players=40, 3=35, 4=30, 5=25, 6=20, minus territories (e.g., 4 players, 10 territories: 30-10=20).
+    - Reset restores pre-deployment state (e.g., bank=20, brazil=1 if unchanged from prior turn).
+    - Console logs: "resetDeployment called", "Reset: [player], bank=20, territories=brazil:1,...".
+    - Location: game.js (resetDeployment, startDeployment, preDeployment)
+  - **Deployment**:
+    - ~10 territories per player (4 players), bank correct.
+    - Deploy armies via scroll (delta=±1) or keyboard, confirm when bank=0.
+    - Console logs: "Start deployment for [player]: bank=20, territories=...".
+    - Location: game.js (initializeGame, startDeployment)
+  - **Card Play**:
+    - Partial: Select cards, play book (+10 armies), skip (if <5 cards).
+    - Wildcard options placeholder.
+    - Location: game.js (startGame, playCard, playBook, skipCardPlay)
+
+Resolved Issues
+--------------
+- **Stats Overlay**:
+  - Removed from panel, moved to top-left map (initially 600x135px).
+  - Fixed placement: Now ~1400x100px, Guido/Nooch/Karl/Mickey/deck/continents, black 21px text, white box, no overlap (y<100).
+  - Location: game.js (updateStats), index.html (removed #panel .stats)
+- **Keyboard Input**:
+  - Fixed miscalculation: Input "10" adds 10 (1→11, not 10), bank-=10.
+  - Deselects after Enter (valid/invalid input).
+  - Location: game.js (handleKeydown)
+- **Reset Button**:
+  - Fixed: Restores pre-deployment bank/armies (e.g., bank=20, brazil=1, not bank=0).
+  - Stores state in gameState.preDeployment at turn start.
+  - Location: game.js (resetDeployment, startDeployment)
+- **Territory Selection**:
+  - Unowned territories unclickable (pointer-events: none).
+  - Deselect on re-click, Enter, or new selection.
+  - Location: game.js (selectTerritory), styles.css (.unowned)
+
+Pending Tasks
+------------
+- Implement attack phase (player vs. player territory conquest).
+- Implement reinforcement phase (move armies between territories).
+- Implement takeover (full game mechanics).
+- Implement save/load game.
+- Complete wildcard card options (aerial attack, territory assignment).
+- Enhance card play (e.g., auto-assign cards).
+- Timeline: Start ~May 6, 2025
+
+Testing Instructions
+-------------------
+1. **Save Files**:
+   - Ensure files in C:\ww3\:
+     - C:\ww3\index.html
+     - C:\ww3\game.js
+     - C:\ww3\styles.css
+     - C:\ww3\images\STAGE.WEBP
+   - Optional: C:\ww3\svg\stage.svg
+2. **Test with Live Server**:
+   - Open C:\ww3\index.html with Live Server.
+   - Test:
+     - **Welcome**: Readable fonts, transitions to login.
+     - **Login**: Blue background, stable dropdown, unique colors.
+     - **Map**: 42 territories numbered, stats overlay (~1400x100px, white box, black 21px, Guido/Nooch/Karl/Mickey/deck/continents, no overlap).
+     - **Panel**: Right, 480x1080, only prompt/bank/buttons/errors, text wraps.
+     - **Territory Selection**: Unowned unclickable, deselect on re-click/Enter/new selection.
+     - **Numbers**: Pink black, others white, readable.
+     - **Bank/Reset**: Correct bank (e.g., 4 players, 10 territories: 20), reset restores pre-deployment.
+     - **Keyboard**: Input “10” adds 10 (1→11), “-4” subtracts, Backspace, deselects, correct errors.
+     - **Deployment**: ~10 territories/player, bank correct.
+     - **Scaling**: No scroll bars, stats in ~100px.
+     - **Console**: 42 territory logs, deployment/reset/keyboard logs, no errors.
+   - Share feedback:
+     - Example: “Login blue, dropdown stable. All territories numbered, stats span top ~1400x100px, white box, black 21px, no overlap. Unowned unclickable, deselects correctly. Panel on right, no stats, buttons work. Bank correct, reset restores bank=20, brazil=1. Keyboard adds 10 (1→11), -4 subtracts, deselects, errors correct. No scroll bars, 1366x768. Console shows 42 territories, reset/keyboard logs, no errors.”
+     - Include resolution (e.g., “1366x768, no zoom”).
+     - Note bugs (e.g., “Reset sets bank to 0”).
+3. **Share Summary**:
+   - Save this file (e.g., C:\ww3\ww3_project_summary.txt).
+   - Present to Grok 3 to resume work.
+
+File Locations
+--------------
+- C:\ww3\index.html: Welcome, login, game screen (map, panel).
+- C:\ww3\game.js: Game logic (initialization, deployment, card play, stats, keyboard, reset).
+- C:\ww3\styles.css: Styling (welcome, login, map, panel, stats, territories).
+- C:\ww3\images\STAGE.WEBP: Map background.
+- C:\ww3\svg\stage.svg: Optional reference.
+
+Notes
+-----
+- Current date: April 26, 2025.
+- Pause work tonight, resume later (e.g., ~May 3, 2025).
+- Feedback critical for next steps (attack, reinforcement, etc.).
+- Contact Grok 3 with this file to continue.
+
+==================
+End of Summary
