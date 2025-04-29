@@ -1,43 +1,36 @@
 <script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
+  var gk_isXlsx = false;
+  var gk_xlsxFileLookup = {};
+  var gk_fileData = {};
+  function filledCell(cell) {
+    return cell !== '' && cell != null;
+  }
+  function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+      try {
+        var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+        var firstSheetName = workbook.SheetNames[0];
+        var worksheet = workbook.Sheets[firstSheetName];
+        var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+        var filteredData = jsonData.filter(row => row.some(filledCell));
+        var headerRowIndex = filteredData.findIndex((row, index) =>
+          row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+        );
+        if (headerRowIndex === -1 || headerRowIndex > 25) {
+          headerRowIndex = 0;
         }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+        var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+        csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+        return csv;
+      } catch (e) {
+        console.error(e);
+        return "";
+      }
+    }
+    return gk_fileData[filename] || "";
+  }
+</script>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -76,7 +69,26 @@
   <div id="game" class="screen">
     <svg id="map" viewBox="0 0 1920 1080">
       <image href="images/STAGE.WEBP" width="1920" height="1080"/>
-      <g id="playerStatsOverlay"></g>
+      <g id="playerStatsOverlay" transform="translate(20, 20)">
+        <rect x="0" y="0" width="1400" height="100" fill="rgba(0, 123, 255, 0.5)"/>
+        <text id="continentPayoffs" x="10" y="30" fill="yellow" font-family="Arial" font-size="16">Continent Payoffs: None</text>
+        <text id="cardsInfo" x="10" y="60" fill="yellow" font-family="Arial" font-size="16">Cards: Deck: 0, Wilds Played: 0</text>
+        <text id="roundsCounter" x="10" y="90" fill="yellow" font-family="Arial" font-size="16">Rounds: 0</text>
+      </g>
+      <g id="playerStatsBottom" transform="translate(20, 940)">
+        <rect x="0" y="0" width="1400" height="120" fill="rgba(0, 123, 255, 0.5)"/>
+        <clipPath id="playerStatsClip">
+          <rect x="0" y="0" width="1400" height="120"/>
+        </clipPath>
+        <g clip-path="url(#playerStatsClip)">
+          <text id="player1Stats" x="10" y="20" fill="yellow" font-family="Arial" font-size="16">Guido: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+          <text id="player2Stats" x="10" y="40" fill="yellow" font-family="Arial" font-size="16">Karl: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+          <text id="player3Stats" x="10" y="60" fill="yellow" font-family="Arial" font-size="16">Mickey: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+          <text id="player4Stats" x="10" y="80" fill="yellow" font-family="Arial" font-size="16">Gary: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+          <text id="player5Stats" x="10" y="100" fill="yellow" font-family="Arial" font-size="16">Nooch: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+          <text id="player6Stats" x="10" y="120" fill="yellow" font-family="Arial" font-size="16">Chris: Cards: 0, Territories: 0, Armies: 0, Continents: None</text>
+        </g>
+      </g>
       <g transform="translate(-222.23624)">
         <ellipse id="alaska" cx="308.55679" cy="264.97107" rx="31.202999" ry="23.426674" class="territory" onclick="selectTerritory('alaska')"/>
         <text class="territory-text" x="308.55679" y="264.97107" id="alaska-text">001</text>
@@ -157,6 +169,7 @@
         <ellipse id="ontario" cx="544.64899" cy="368.582" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('ontario')"/>
         <text class="territory-text" x="544.64899" y="368.582" id="ontario-text">001</text>
         <ellipse id="alberta" cx="417.74677" cy="364.97565" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('alberta')"/>
+       本地: 1
         <text class="territory-text" x="417.74677" y="364.97565" id="alberta-text">001</text>
         <ellipse id="greenland" cx="806.80243" cy="186.89986" rx="31.202753" ry="23.426674" class="territory" onclick="selectTerritory('greenland')"/>
         <text class="territory-text" x="806.80243" y="186.89986" id="greenland-text">001</text>

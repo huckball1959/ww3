@@ -4,17 +4,19 @@ let gameState = {
   territories: {},
   bank: {},
   deployed: {},
-  preDeployment: {}, // Added to store pre-deployment state
+  preDeployment: {},
   phase: 'deployment',
   cards: [],
   continentClaims: { Africa: 0, Asia: 0, Australia: 0, Europe: 0, NorthAmerica: 0, SouthAmerica: 0 },
   deck: [],
   wildcardsPlayed: 0,
-  round: 1
+  rounds: 1 // Changed from 0 to 1
 };
+console.log('New game.js loaded, rounds set to: ', gameState.rounds);
 let selectedTerritory = null;
 let selectedCard = null;
 let inputBuffer = '';
+let isArmiesLaidClicked = false; // New: Track Armies Laid toggle state
 const territories = [
   'alaska', 'northwest_territory', 'greenland', 'alberta', 'ontario', 'quebec',
   'western_united_states', 'eastern_united_states', 'central_america', 'venezuela',
@@ -71,20 +73,12 @@ const cardDeck = [
   { name: 'wildcard', type: 'null' }
 ];
 const continents = {
-  NorthAmerica: ['alaska', 'northwest_territory', 'greenland', 'alberta', 'ontario', 'quebec', 'western_united_states', 'eastern_united_states', 'central_america'],
-  SouthAmerica: ['venezuela', 'peru', 'brazil', 'argentina'],
-  Europe: ['iceland', 'scandinavia', 'ukraine', 'great_britain', 'northern_europe', 'western_europe', 'southern_europe'],
-  Africa: ['north_africa', 'egypt', 'east_africa', 'congo', 'south_africa', 'madagascar'],
-  Asia: ['ural', 'siberia', 'yakutsk', 'kamchatka', 'irkutsk', 'afghanistan', 'china', 'mongolia', 'japan', 'middle_east', 'india', 'siam'],
-  Australia: ['indonesia', 'new_guinea', 'western_australia', 'eastern_australia']
-};
-const continentBaseBonuses = {
-  NorthAmerica: 5,
-  Europe: 5,
-  Asia: 7,
-  Africa: 3,
-  SouthAmerica: 2,
-  Australia: 2
+  'North America': { territories: ['alaska', 'northwest_territory', 'greenland', 'alberta', 'ontario', 'quebec', 'western_united_states', 'eastern_united_states', 'central_america'], basePayoff: 5 },
+  'South America': { territories: ['venezuela', 'peru', 'brazil', 'argentina'], basePayoff: 2 },
+  Europe: { territories: ['iceland', 'scandinavia', 'ukraine', 'great_britain', 'northern_europe', 'western_europe', 'southern_europe'], basePayoff: 5 },
+  Africa: { territories: ['north_africa', 'egypt', 'east_africa', 'congo', 'south_africa', 'madagascar'], basePayoff: 3 },
+  Asia: { territories: ['ural', 'siberia', 'yakutsk', 'kamchatka', 'irkutsk', 'afghanistan', 'china', 'mongolia', 'japan', 'middle_east', 'india', 'siam'], basePayoff: 7 },
+  Australia: { territories: ['indonesia', 'new_guinea', 'western_australia', 'eastern_australia'], basePayoff: 2 }
 };
 
 function showLogin() {
@@ -149,8 +143,10 @@ function enableColorSelect(playerIndex) {
 
 document.getElementById('playerForm').addEventListener('submit', (e) => {
   e.preventDefault();
+  console.log('playerForm submitted, clearing localStorage');
   const numPlayers = parseInt(document.getElementById('numPlayers').value);
-  players.length = 0;
+  players.length = 0; // Clear players array
+  localStorage.clear(); // Clear localStorage to remove old player data
   const usedColors = new Set();
   let error = '';
   
@@ -203,7 +199,7 @@ function initializeGame() {
       const ellipse = document.getElementById(t);
       if (text && ellipse) {
         text.textContent = '001';
-        text.style.fill = player.color === 'pink' ? 'black' : 'white';
+        text.style.fill = ['pink', 'yellow'].includes(player.color) ? 'black' : 'white';
         ellipse.style.fill = player.color;
         ellipse.classList.remove('unowned');
         console.log(`Initialized ${t}: owner=${player.name}, color=${player.color}, armies=1`);
@@ -250,7 +246,6 @@ function shuffle(array) {
 function startDeployment() {
   const player = players[currentPlayer];
   gameState.phase = 'deployment';
-  // Store pre-deployment state
   gameState.preDeployment[player.name] = {
     bank: gameState.bank[player.name],
     territories: {}
@@ -262,6 +257,8 @@ function startDeployment() {
   document.getElementById('bank').textContent = gameState.bank[player.name];
   document.getElementById('deploymentButtons').style.display = 'flex';
   document.getElementById('cardPanel').style.display = 'none';
+  isArmiesLaidClicked = false; // Reset toggle state
+  document.getElementById('armiesLaid').classList.remove('clicked'); // Reset button style
   updateStats();
   console.log(`Start deployment for ${player.name}: bank=${gameState.bank[player.name]}, territories=${player.territories.join(', ')}`);
 }
@@ -312,6 +309,7 @@ function handleScroll(e) {
   armies += delta;
   gameState.bank[player.name] -= delta;
   gameState.deployed[player.name][selectedTerritory] = deployed + delta;
+  gameState.territories[selectedTerritory].armies = armies; // Sync territories state
   document.getElementById(`${selectedTerritory}-text`).textContent = armies.toString().padStart(3, '0');
   document.getElementById('bank').textContent = gameState.bank[player.name];
   document.getElementById('error').textContent = '';
@@ -355,6 +353,7 @@ function handleKeydown(e) {
     armies += delta;
     gameState.bank[player.name] -= delta;
     gameState.deployed[player.name][selectedTerritory] = deployed + delta;
+    gameState.territories[selectedTerritory].armies = armies; // Sync territories state
     document.getElementById(`${selectedTerritory}-text`).textContent = armies.toString().padStart(3, '0');
     document.getElementById('bank').textContent = gameState.bank[player.name];
     console.log(`Keyboard: ${selectedTerritory}, input=${inputBuffer}, delta=${delta}, armies=${armies}, bank=${gameState.bank[player.name]}, deployed=${gameState.deployed[player.name][selectedTerritory]}`);
@@ -382,21 +381,34 @@ function deselectTerritory() {
 }
 
 function toggleArmiesLaid() {
-  console.log('toggleArmiesLaid called');
+  console.log('toggleArmiesLaid called, current state: ', isArmiesLaidClicked);
   const player = players[currentPlayer];
-  const show = document.getElementById('armiesLaid').textContent === 'Show Armies';
-  document.getElementById('armiesLaid').textContent = show ? 'Hide Armies' : 'Show Armies';
+  isArmiesLaidClicked = !isArmiesLaidClicked; // Toggle state
+  const button = document.getElementById('armiesLaid');
+  if (isArmiesLaidClicked) {
+    button.classList.add('clicked');
+  } else {
+    button.classList.remove('clicked');
+  }
   player.territories.forEach(t => {
     const deployed = gameState.deployed[player.name][t] || 0;
+    const original = gameState.preDeployment[player.name].territories[t] || 1;
     const el = document.getElementById(t);
     const text = document.getElementById(`${t}-text`);
-    if (deployed > 0 && show && el && text) {
-      el.style.fill = 'rgba(255, 255, 0, 0.3)';
-      text.textContent += ` (+${deployed})`;
-    } else if (el && text) {
-      el.style.fill = player.color;
-      text.textContent = gameState.territories[t].armies.toString().padStart(3, '0');
-      text.style.fill = player.color === 'pink' ? 'black' : 'white';
+    if (el && text) {
+      if (deployed > 0 && isArmiesLaidClicked) {
+        el.style.fill = 'white';
+        text.textContent = `${original.toString().padStart(3, '0')}+${deployed.toString().padStart(3, '0')}`;
+        text.style.fill = 'black';
+        console.log(`Armies Laid (clicked): ${t}, original=${original}, deployed=${deployed}, text=${text.textContent}`);
+      } else {
+        el.style.fill = player.color;
+        text.textContent = gameState.territories[t].armies.toString().padStart(3, '0');
+        text.style.fill = ['pink', 'yellow'].includes(player.color) ? 'black' : 'white';
+        console.log(`Armies Laid (unclicked): ${t}, total=${gameState.territories[t].armies}`);
+      }
+    } else {
+      console.error(`Failed to update ${t}: el=${!!el}, text=${!!text}`);
     }
   });
 }
@@ -404,7 +416,6 @@ function toggleArmiesLaid() {
 function resetDeployment() {
   console.log('resetDeployment called');
   const player = players[currentPlayer];
-  // Restore pre-deployment state
   gameState.bank[player.name] = gameState.preDeployment[player.name].bank;
   player.territories.forEach(t => {
     gameState.territories[t].armies = gameState.preDeployment[player.name].territories[t];
@@ -412,13 +423,14 @@ function resetDeployment() {
     const ellipse = document.getElementById(t);
     if (text && ellipse) {
       text.textContent = gameState.territories[t].armies.toString().padStart(3, '0');
-      text.style.fill = player.color === 'pink' ? 'black' : 'white';
+      text.style.fill = ['pink', 'yellow'].includes(player.color) ? 'black' : 'white';
       ellipse.style.fill = player.color;
     }
   });
   gameState.deployed[player.name] = {};
+  isArmiesLaidClicked = false; // Reset toggle state
+  document.getElementById('armiesLaid').classList.remove('clicked'); // Reset button style
   document.getElementById('bank').textContent = gameState.bank[player.name];
-  document.getElementById('armiesLaid').textContent = 'Show Armies';
   document.getElementById('error').textContent = '';
   console.log(`Reset: ${player.name}, bank=${gameState.bank[player.name]}, territories=${player.territories.map(t => `${t}:${gameState.territories[t].armies}`).join(', ')}`);
 }
@@ -434,6 +446,9 @@ function confirmDeployment() {
   player.territories.forEach(t => {
     gameState.territories[t].armies = parseInt(document.getElementById(`${t}-text`).textContent);
   });
+  isArmiesLaidClicked = false; // Reset toggle state
+  document.getElementById('armiesLaid').classList.remove('clicked'); // Reset button style
+  updateStats();
   currentPlayer = (currentPlayer + 1) % players.length;
   if (currentPlayer === 0 && gameState.phase === 'deployment') {
     gameState.phase = 'game';
@@ -446,6 +461,9 @@ function confirmDeployment() {
 
 function startGame() {
   const player = players[currentPlayer];
+  if (currentPlayer === 0) {
+    gameState.rounds++;
+  }
   calculateIncome();
   gameState.phase = 'cardPlay';
   document.getElementById('playerPrompt').textContent = `${player.name}, Play Cards`;
@@ -458,15 +476,16 @@ function calculateIncome() {
   const player = players[currentPlayer];
   let territoryBonus = Math.max(3, Math.floor(player.territories.length / 3));
   let continentBonus = 0;
-  for (const [continent, terrs] of Object.entries(continents)) {
-    if (terrs.every(t => gameState.territories[t].owner === player.name)) {
-      continentBonus += continentBaseBonuses[continent] * (gameState.continentClaims[continent] + 1);
+  for (const [continent, data] of Object.entries(continents)) {
+    if (data.territories.every(t => gameState.territories[t]?.owner === player.name)) {
       gameState.continentClaims[continent]++;
+      continentBonus += data.basePayoff * (gameState.continentClaims[continent] + 1);
     }
   }
   gameState.bank[player.name] = (gameState.bank[player.name] || 0) + territoryBonus + continentBonus;
   document.getElementById('bank').textContent = gameState.bank[player.name];
   document.getElementById('error').textContent = `Income: ${territoryBonus} (territories) + ${continentBonus} (continents) = ${territoryBonus + continentBonus} armies`;
+  updateStats();
 }
 
 function displayCards() {
@@ -494,6 +513,7 @@ function applyCardEffect(territoryId) {
   const player = players[currentPlayer];
   const card = player.cards[selectedCard];
   if (card.name === 'wildcard') {
+    gameState.wildcardsPlayed++;
     document.getElementById('error').textContent = 'Wildcard options: Aerial Attack or Territory assignment (not implemented yet)';
     return;
   }
@@ -519,7 +539,7 @@ function applyCardEffect(territoryId) {
       const text = document.getElementById(`${territoryId}-text`);
       const ellipse = document.getElementById(territoryId);
       if (text && ellipse) {
-        text.style.fill = player.color === 'pink' ? 'black' : 'white';
+        text.style.fill = ['pink', 'yellow'].includes(player.color) ? 'black' : 'white';
         ellipse.style.fill = player.color;
         ellipse.classList.remove('unowned');
       }
@@ -543,6 +563,7 @@ function playCard() {
   }
   const card = player.cards[selectedCard];
   if (card.name === 'wildcard') {
+    gameState.wildcardsPlayed++;
     document.getElementById('error').textContent = 'Wildcard options: Aerial Attack or Territory assignment (not implemented yet)';
     return;
   }
@@ -599,36 +620,42 @@ function skipCardPlay() {
 }
 
 function updateStats() {
-  const playerStatsOverlay = document.getElementById('playerStatsOverlay');
-  playerStatsOverlay.innerHTML = '';
-  const lineHeight = 20;
-  const padding = 10;
-  const statsLines = [];
-  
-  players.forEach(player => {
-    const ownedContinents = Object.entries(continents)
-      .filter(([_, terrs]) => terrs.every(t => gameState.territories[t]?.owner === player.name))
-      .map(([continent]) => continent);
-    player.armies = player.territories.reduce((sum, t) => sum + (gameState.territories[t]?.armies || 0), 0);
-    statsLines.push(`${player.name}: ${player.cards.length} Cards, ${player.territories.length} Territories, ${player.armies} Armies, Continents – ${ownedContinents.join(', ') || 'None'}`);
-  });
-  statsLines.push(`${gameState.deck.length} Cards left in the Deck, ${gameState.wildcardsPlayed} Wildcards played`);
-  statsLines.push(`Continents next payoff: Australia ${2 * (gameState.continentClaims.Australia + 1)}, South America ${2 * (gameState.continentClaims.SouthAmerica + 1)}, Africa ${3 * (gameState.continentClaims.Africa + 1)}, North America ${5 * (gameState.continentClaims.NorthAmerica + 1)}, Europe ${5 * (gameState.continentClaims.Europe + 1)}, Asia ${7 * (gameState.continentClaims.Asia + 1)}`);
-  
-  const maxWidth = 1400;
-  const height = 5 * lineHeight + 2 * padding;
-  
-  playerStatsOverlay.innerHTML = `
-    <rect x="5" y="5" width="${maxWidth}" height="${height}" fill="white" stroke="black" stroke-width="1"/>
-  `;
-  
-  // Position players: Guido (left), Nooch (right), Karl (below Guido), Mickey (below Nooch)
-  playerStatsOverlay.innerHTML += `
-    <text x="${padding}" y="${padding + 21}" class="player-stats-text">${statsLines[0]}</text>
-    <text x="${maxWidth / 2}" y="${padding + 21}" class="player-stats-text">${statsLines[2]}</text>
-    <text x="${padding}" y="${padding + 21 + lineHeight}" class="player-stats-text">${statsLines[1]}</text>
-    <text x="${maxWidth / 2}" y="${padding + 21 + lineHeight}" class="player-stats-text">${statsLines[3]}</text>
-    <text x="${padding}" y="${padding + 21 + 2 * lineHeight}" class="player-stats-text">${statsLines[4]}</text>
-    <text x="${padding}" y="${padding + 21 + 3 * lineHeight}" class="player-stats-text">${statsLines[5]}</text>
-  `;
+  console.log('updateStats called, players: ', players.map(p => p.name));
+  // Upper Panel
+  const continentPayoffs = Object.entries(continents).map(([continent, data]) => {
+    const collections = gameState.continentClaims[continent] || 0;
+    const payoff = data.basePayoff * (collections + 1);
+    return `${continent}: ${payoff}`;
+  }).join(", ");
+  const continentPayoffsElement = document.getElementById("continentPayoffs");
+  if (continentPayoffsElement) {
+    continentPayoffsElement.textContent = `Continent Payoffs: ${continentPayoffs}`;
+  }
+
+  const cardsInfoElement = document.getElementById("cardsInfo");
+  if (cardsInfoElement) {
+    cardsInfoElement.textContent = `Cards: Deck: ${gameState.deck.length}, Wilds Played: ${gameState.wildcardsPlayed}`;
+  }
+
+  const roundsCounterElement = document.getElementById("roundsCounter");
+  if (roundsCounterElement) {
+    roundsCounterElement.textContent = `Rounds: ${gameState.rounds}`;
+  }
+
+  // Lower Panel
+  for (let i = 1; i <= 6; i++) {
+    const statsElement = document.getElementById(`player${i}Stats`);
+    if (statsElement) {
+      if (i <= players.length) {
+        const player = players[i - 1];
+        const ownedContinents = Object.entries(continents)
+          .filter(([_, data]) => data.territories.every(t => gameState.territories[t]?.owner === player.name))
+          .map(([continent]) => continent);
+        player.armies = player.territories.reduce((sum, t) => sum + (gameState.territories[t]?.armies || 0), 0);
+        statsElement.textContent = `${player.name}: Cards: ${player.cards.length}, Territories: ${player.territories.length}, Armies: ${player.armies}, Continents: ${ownedContinents.join(", ") || "None"}`;
+      } else {
+        statsElement.textContent = ''; // Clear unused player stats
+      }
+    }
+  }
 }
