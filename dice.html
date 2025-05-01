@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Risk Dice Panel</title>
+  <style>
+    body { font-family: sans-serif; background-color: #f4f4f4; padding: 20px; }
+    .panel { background: white; border-radius: 8px; padding: 20px; max-width: 600px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .section { margin-bottom: 20px; }
+    .dice-container { display: flex; gap: 10px; margin-top: 10px; }
+    .dice { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid grey; border-radius: 4px; background: white; cursor: pointer; font-weight: bold; font-size: 18px; }
+    .attacker-dice.active { border-color: red; }
+    .defender-dice.active { border-color: black; }
+    .buttons button { margin-right: 10px; margin-bottom: 10px; }
+    #log { white-space: pre-wrap; background: #eee; padding: 10px; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+    .report { margin-top: 10px; font-weight: bold; }
+    
+    .attacker-panel {
+      background-color: #ffe5e5;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .defender-panel {
+      background-color: #e5e5e5;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    h4 {
+      margin-bottom: 5px;
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="section">
+      <h2>Attacker: Alice (Armies: <span id="attacker-armies">50</span>)</h2>
+      <h4>Attacker Dice</h4>
+      <div class="dice-container attacker-panel" id="attacker-dice">
+        <div class="dice attacker-dice active" data-index="0">1</div>
+        <div class="dice attacker-dice" data-index="1"></div>
+        <div class="dice attacker-dice" data-index="2"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Defender: Bob (Armies: <span id="defender-armies">30</span>)</h3>
+      <h4>Defender Dice</h4>
+      <div class="dice-container defender-panel" id="defender-dice">
+        <div class="dice defender-dice active" data-index="0">1</div>
+        <div class="dice defender-dice" data-index="1"></div>
+      </div>
+    </div>
+
+    <div class="report" id="result-report"></div>
+
+    <div class="section input-box">
+      <label for="loss-limit">Set Loss Limit: </label>
+      <input type="number" id="loss-limit" min="1" placeholder="Enter limit" />
+    </div>
+
+    <div class="section buttons">
+      <button onclick="rollDice()">Roll Dice</button>
+      <button onclick="startBlitz()">Blitz</button>
+      <button onclick="startConditionalBlitz()">Conditional Blitz</button>
+      <button onclick="startPausibleBlitz()">Pausible Blitz</button>
+      <button onclick="stopAttack()">Stop Attack</button>
+      <button onclick="toggleLog()">Show Log</button>
+    </div>
+
+    <div class="section" id="log" style="display: none;"></div>
+  </div>
+
+  <script>
+    let attackerArmies = localStorage.getItem('attackerArmies') ? parseInt(localStorage.getItem('attackerArmies')) : 50;
+    let defenderArmies = localStorage.getItem('defenderArmies') ? parseInt(localStorage.getItem('defenderArmies')) : 30;
+    const log = [];
+    let blitzInterval;
+    let pausableBlitzState = { active: false, paused: false };
+
+    function updateArmies() {
+      if (attackerArmies < 1) attackerArmies = 1;
+      if (defenderArmies < 0) defenderArmies = 0;
+      document.getElementById("attacker-armies").textContent = attackerArmies;
+      document.getElementById("defender-armies").textContent = defenderArmies;
+    }
+
+    document.querySelectorAll(".attacker-dice").forEach((die) => {
+      die.addEventListener("click", () => {
+        const active = document.querySelectorAll(".attacker-dice.active").length;
+        if (die.classList.contains("active")) {
+          if (active > 1) {
+            die.classList.remove("active");
+            die.textContent = "";
+          }
+        } else {
+          if (active < 3) {
+            die.classList.add("active");
+            if (die.textContent === "") die.textContent = "1";
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll(".defender-dice").forEach((die) => {
+      die.addEventListener("click", () => {
+        const active = document.querySelectorAll(".defender-dice.active").length;
+        if (die.classList.contains("active")) {
+          if (active > 1) {
+            die.classList.remove("active");
+            die.textContent = "";
+          }
+        } else {
+          if (active < 2) {
+            die.classList.add("active");
+            if (die.textContent === "") die.textContent = "1";
+          }
+        }
+      });
+    });
+
+    function rollSingleDie() {
+      return Math.floor(Math.random() * 6) + 1;
+    }
+
+    function rollDice() {
+      if (attackerArmies < 2) {
+        const resultMsg = "The attacker does not have enough armies to roll dice.";
+        document.getElementById("result-report").textContent = resultMsg;
+        log.push(resultMsg);
+        return 0;
+      }
+      if (defenderArmies < 1) {
+        const resultMsg = "The defender does not have enough armies to roll dice.";
+        document.getElementById("result-report").textContent = resultMsg;
+        log.push(resultMsg);
+        return 0;
+      }
+
+      const attackerRolls = rollDiceFor("attacker");
+      const defenderRolls = rollDiceFor("defender");
+
+      let attackerLosses = 0;
+      let defenderLosses = 0;
+
+      for (let i = 0; i < Math.min(attackerRolls.length, defenderRolls.length); i++) {
+        if (attackerRolls[i] > defenderRolls[i]) {
+          defenderArmies = Math.max(0, defenderArmies - 1);
+          defenderLosses++;
+        } else {
+          attackerArmies = Math.max(1, attackerArmies - 1);
+          attackerLosses++;
+        }
+      }
+
+      updateArmies();
+      const resultMsg = `Attacker rolls: ${attackerRolls.join(", ")} | Defender rolls: ${defenderRolls.join(", ")}
+Alice loses ${attackerLosses}, Bob loses ${defenderLosses}`;
+      document.getElementById("result-report").textContent = resultMsg;
+      log.push(resultMsg);
+      resetPausibleBlitzButton();
+      return attackerLosses;
+    }
+
+    function rollDiceFor(player) {
+      const dice = Array.from(document.querySelectorAll(`.${player}-dice`));
+      const activeDice = dice.filter(d => d.classList.contains("active"));
+      const rolls = activeDice.map(() => rollSingleDie()).sort((a, b) => b - a);
+      rolls.forEach((val, i) => activeDice[i].textContent = val);
+      return rolls;
+    }
+
+    function toggleLog() {
+      const logBox = document.getElementById("log");
+      if (logBox.style.display === "none") {
+        logBox.style.display = "block";
+        logBox.textContent = log.join("\n");
+      } else {
+        logBox.style.display = "none";
+      }
+    }
+
+    function blitzAttack(onFinish = () => {}) {
+      while (attackerArmies > 1 && defenderArmies > 0) {
+        rollDice();
+      }
+      onFinish();
+    }
+
+    function startBlitz() {
+      blitzAttack(() => {
+        const resultMsg = "Blitz finished. One player can no longer roll.";
+        log.push(resultMsg);
+        document.getElementById("result-report").textContent = resultMsg;
+      });
+      resetPausibleBlitzButton();
+    }
+
+    function startConditionalBlitz() {
+      const lossLimit = parseInt(document.getElementById("loss-limit").value);
+      if (isNaN(lossLimit) || lossLimit <= 0) {
+        alert("Please enter a valid loss limit.");
+        return;
+      }
+
+      let totalLosses = 0;
+
+      blitzInterval = setInterval(() => {
+        if (attackerArmies <= 1 || defenderArmies <= 0 || totalLosses >= lossLimit) {
+          clearInterval(blitzInterval);
+
+          const resultMsg = totalLosses >= lossLimit
+            ? `Conditional Blitz paused: Attacker reached loss limit of ${lossLimit}.`
+            : "Conditional Blitz finished.";
+          document.getElementById("result-report").textContent = resultMsg;
+          log.push(resultMsg);
+          return;
+        }
+
+        totalLosses += rollDice();
+      }, 500);
+    }
+
+    function startPausibleBlitz() {
+      const button = document.querySelector("button[onclick='startPausibleBlitz()']");
+      if (!pausableBlitzState.active) {
+        pausableBlitzState.active = true;
+        pausableBlitzState.paused = false;
+        button.textContent = "Pause Blitz";
+        blitzInterval = setInterval(() => {
+          if (pausableBlitzState.paused || attackerArmies <= 1 || defenderArmies <= 0) return;
+          rollDice();
+        }, 500);
+      } else {
+        pausableBlitzState.paused = !pausableBlitzState.paused;
+        button.textContent = pausableBlitzState.paused ? "Resume Blitz" : "Pause Blitz";
+      }
+    }
+
+    function stopAttack() {
+      clearInterval(blitzInterval);
+      pausableBlitzState = { active: false, paused: false };
+      const pauseBtn = document.querySelector("button[onclick='startPausibleBlitz()']");
+      pauseBtn.textContent = "Pausible Blitz";
+    }
+
+    function resetPausibleBlitzButton() {
+      const pauseBtn = document.querySelector("button[onclick='startPausibleBlitz()']");
+      if (pausableBlitzState.active && !pausableBlitzState.paused) {
+        pauseBtn.textContent = "Pause Blitz";
+      } else {
+        pauseBtn.textContent = "Pausible Blitz";
+      }
+    }
+
+    // Initialize game with fetched armies
+    updateArmies();
+  </script>
+</body>
+</html>
