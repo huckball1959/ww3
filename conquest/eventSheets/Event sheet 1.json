@@ -1,0 +1,27 @@
+{
+	"name": "Event sheet 1",
+	"events": [
+		{
+			"eventType": "block",
+			"conditions": [
+				{
+					"id": "on-start-of-layout",
+					"objectClass": "System",
+					"sid": 860230973679979
+				}
+			],
+			"actions": [
+				{
+					"id": "set-text",
+					"objectClass": "TerritoyNumber",
+					"sid": 356972246494867,
+					"parameters": {
+						"text": "zeropad(1, 3)"
+					}
+				}
+			],
+			"sid": 473915296289904
+		}
+	],
+	"sid": 457430083948079
+}
